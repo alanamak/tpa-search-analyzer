@@ -260,3 +260,7 @@ tbody tr:hover td { background: #111; }
   .search-box { align-items: stretch; flex-direction: column; }
   .search-box input { width: 100%; }
 }
+
+.upload-clear-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.clear-target-files { margin-top: 0; }
+#targetFileName { white-space: normal; line-height: 1.35; overflow-wrap: anywhere; }

@@ -32,3 +32,9 @@ IMPORTANT
 - Upload the contents of the folder, not the ZIP file.
 - Do not place index.html inside an extra folder.
 - The app is designed for GitHub Pages and does not need a build command.
+
+MULTIPLE REPORT UPLOADS
+- The main Search Term uploader accepts up to 20 CSV/XLSX reports.
+- The optional Current Keyword / Target uploader accepts up to 20 CSV/XLSX reports.
+- Select multiple files at once, or upload more in later selections.
+- Use Clear Search Term reports or Clear optional reports to reset either uploader.

@@ -25,6 +25,10 @@ A browser-based analyzer for Roundel TPA Search Term reports. It surfaces:
 - `UPLOAD-INSTRUCTIONS.txt` — condensed GitHub upload steps
 - `.nojekyll` — keeps GitHub Pages from processing the site with Jekyll
 
+## Search Term report uploads
+
+The main uploader accepts **up to 20 CSV/XLSX Search Term reports**. Select several files at once or add more files in later selections. The app combines the rows, de-duplicates file selections, and lets you filter by any Week or Month included across the loaded reports. Use **Clear Search Term reports** to reset the main upload.
+
 ## Required Search Term report columns
 
 The analyzer recognizes common Roundel column names and close variations for:
@@ -42,9 +46,9 @@ The analyzer recognizes common Roundel column names and close variations for:
 
 Units are optional for the general app, but the **Maximize Unit Sales** goal is disabled when a Units column is not present.
 
-## Optional Current Keyword / Target report
+## Optional Current Keyword / Target reports
 
-Upload a second file to improve recommendation labels. The app looks for:
+Upload up to **20 optional files** to improve recommendation labels. The app looks for:
 
 - Keyword or Target
 - Campaign
@@ -106,3 +110,17 @@ The report is processed in the user’s browser. This static version does not up
 ## Updating the app
 
 Upload replacement files with the same names and commit the changes. GitHub Pages will redeploy automatically.
+
+
+## Multiple-report capacity
+
+- Main Search Term uploader: up to 20 CSV/XLSX reports
+- Optional Current Keyword / Target uploader: up to 20 CSV/XLSX reports
+- Files can be selected together or added in later selections
+- Duplicate file selections are ignored
+- If any loaded Search Term report lacks Units, Maximize Unit Sales stays disabled for the combined analysis
+
+
+## Revenue inefficiency benchmark
+
+In Auto mode for **Maximize Revenue**, a search term is treated as an inefficiency when it has at least 6 clicks and its Order CVR is at or below 50% of the selected period’s non-branded Order CVR benchmark. For example, if the non-branded Order CVR benchmark is 20%, the inefficiency ceiling is 10%. Converting terms are generally reviewed for bid decreases, while zero-order terms are stronger negative-target candidates.

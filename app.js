@@ -4,13 +4,17 @@
   const $ = (id) => document.getElementById(id);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
+  const MAX_SEARCH_FILES = 20;
+  const MAX_TARGET_FILES = 20;
+
   const state = {
-    searchFile: null,
-    targetFile: null,
+    searchFiles: [],
+    searchMappings: [],
+    targetFiles: [],
     rows: [],
     targetRows: [],
     mapped: null,
-    targetMapped: null,
+    targetMappings: [],
     periods: { weekly: [], monthly: [] },
     mode: "weekly",
     selectedPeriod: "__ALL__",
@@ -55,7 +59,7 @@
     },
     revenue: {
       note: "Order CVR must be at or above the selected period’s non-branded benchmark. Opportunities are sorted by highest attributed Sales.",
-      ineff: "Order CVR at or below 50% of the non-branded benchmark is treated as an inefficiency.",
+      ineff: "A term is treated as an inefficiency when it has at least 6 clicks and its Order CVR is 50% or less of the selected period’s non-branded Order CVR benchmark. Example: if the benchmark is 20%, terms at 10% or below qualify for review.",
     },
     roas: {
       note: "ROAS must be at least 15% above the selected period’s non-branded benchmark. Opportunities are sorted by highest ROAS.",
@@ -192,7 +196,6 @@
     if (!file) return [];
     const extension = file.name.split(".").pop().toLowerCase();
     if (extension === "csv") {
-      if (typeof Papa === "undefined") throw new Error("The CSV reader could not load. Refresh the page and try again.");
       return new Promise((resolve, reject) => {
         Papa.parse(file, {
           header: true,
@@ -206,7 +209,6 @@
         });
       });
     }
-    if (typeof XLSX === "undefined") throw new Error("The Excel reader could not load. Refresh the page and try again.");
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -880,10 +882,6 @@
 
   function downloadResults() {
     if (!state.analysis) return;
-    if (typeof XLSX === "undefined") {
-      setStatus("The Excel exporter could not load. Refresh the page and try again.", true);
-      return;
-    }
     const workbook = XLSX.utils.book_new();
     const oppRows = state.analysis.opportunities.map((item, index) => exportRow(item, index + 1, "opportunity"));
     const ineffRows = state.analysis.inefficiencies.map((item, index) => exportRow(item, index + 1, "inefficiency"));
@@ -905,10 +903,6 @@
   }
 
   function downloadTemplate() {
-    if (typeof XLSX === "undefined") {
-      setStatus("The Excel template generator could not load. Refresh the page and try again.", true);
-      return;
-    }
     const workbook = XLSX.utils.book_new();
     const searchTemplate = [{
       "Account Name": "Example Brand – RMS",
@@ -941,55 +935,163 @@
     XLSX.writeFile(workbook, "TPA_Search_Term_Analyzer_Template.xlsx");
   }
 
-  async function handleSearchFile(file) {
+  function renderSearchFileSummary() {
+    const label = $("searchFileName");
+    const clearButton = $("clearSearchFiles");
+    if (!state.searchFiles.length) {
+      label.textContent = `CSV or XLSX · up to ${MAX_SEARCH_FILES} files`;
+      clearButton.hidden = true;
+      return;
+    }
+    const names = state.searchFiles.map((file) => file.name);
+    const shown = names.slice(0, 4).join(", ");
+    const remainder = names.length > 4 ? ` +${names.length - 4} more` : "";
+    label.textContent = `${names.length} file${names.length === 1 ? "" : "s"} · ${formatNumber(state.rows.length)} rows · ${shown}${remainder}`;
+    clearButton.hidden = false;
+  }
+
+  async function handleSearchFiles(files) {
+    const incoming = Array.from(files || []).filter(Boolean);
+    if (!incoming.length) return;
+
     try {
-      setStatus("Reading Search Term report…");
-      const raw = await parseFile(file);
-      const mapping = mapColumns(raw, columnAliases);
-      const missing = validateSearchMapping(mapping);
-      if (missing.length) throw new Error(`Missing required columns: ${missing.join(", ")}.`);
-      state.searchFile = file;
-      state.mapped = mapping;
-      state.rows = prepareRows(raw, mapping);
-      state.hasUnits = Boolean(mapping.units);
-      if (!state.rows.length) throw new Error("The uploaded file did not contain any usable keyword rows.");
-      $("searchFileName").textContent = `${file.name} · ${formatNumber(state.rows.length)} rows`;
+      const existingKeys = new Set(state.searchFiles.map((file) => `${file.name}|${file.size}|${file.lastModified}`));
+      const uniqueIncoming = incoming.filter((file) => !existingKeys.has(`${file.name}|${file.size}|${file.lastModified}`));
+      if (!uniqueIncoming.length) {
+        setStatus("Those Search Term reports are already loaded.");
+        return;
+      }
+
+      const availableSlots = MAX_SEARCH_FILES - state.searchFiles.length;
+      if (availableSlots <= 0) throw new Error(`You can upload up to ${MAX_SEARCH_FILES} Search Term reports.`);
+      const newFiles = uniqueIncoming.slice(0, availableSlots);
+      const ignoredCount = uniqueIncoming.length - newFiles.length;
+      setStatus(`Reading ${newFiles.length} Search Term report${newFiles.length === 1 ? "" : "s"}…`);
+
+      const parsedFiles = [];
+      for (const file of newFiles) {
+        const raw = await parseFile(file);
+        const mapping = mapColumns(raw, columnAliases);
+        const missing = validateSearchMapping(mapping);
+        if (missing.length) throw new Error(`${file.name} is missing required columns: ${missing.join(", ")}.`);
+        const prepared = prepareRows(raw, mapping).map((row) => ({ ...row, sourceFile: file.name }));
+        if (!prepared.length) throw new Error(`${file.name} did not contain any usable keyword rows.`);
+        parsedFiles.push({ file, mapping, rows: prepared });
+      }
+
+      state.searchFiles.push(...parsedFiles.map((item) => item.file));
+      state.searchMappings.push(...parsedFiles.map((item) => item.mapping));
+      state.rows.push(...parsedFiles.flatMap((item) => item.rows));
+      state.hasUnits = state.searchMappings.length > 0 && state.searchMappings.every((mapping) => Boolean(mapping.units));
+
+      renderSearchFileSummary();
       $("analyzeButton").disabled = false;
       $("goalGrid").querySelector('[data-goal="unit"]').disabled = !state.hasUnits;
       if (!state.hasUnits && state.goal === "unit") setGoal("revenue");
       refreshPeriods();
       applyAutoThresholds();
       updateThresholdEditability();
-      setStatus(`${file.name} loaded. ${state.hasUnits ? "Units detected." : "Units not detected; Unit Sales goal is disabled."}`);
+
+      const unitMessage = state.hasUnits
+        ? "Units detected in every loaded Search Term report."
+        : "Unit Sales is disabled unless every loaded Search Term report includes Units.";
+      const limitMessage = ignoredCount > 0 ? ` ${ignoredCount} additional file${ignoredCount === 1 ? " was" : "s were"} not added because the ${MAX_SEARCH_FILES}-file limit was reached.` : "";
+      setStatus(`${newFiles.length} Search Term report${newFiles.length === 1 ? "" : "s"} added. ${formatNumber(state.rows.length)} total rows loaded. ${unitMessage}${limitMessage}`);
     } catch (error) {
-      state.rows = [];
-      state.searchFile = null;
-      $("analyzeButton").disabled = true;
-      $("searchFileName").textContent = "CSV or XLSX";
-      setStatus(error.message || "Unable to read the Search Term report.", true);
+      renderSearchFileSummary();
+      setStatus(error.message || "Unable to read one of the Search Term reports.", true);
     }
   }
 
-  async function handleTargetFile(file) {
+  function clearSearchFiles() {
+    state.searchFiles = [];
+    state.searchMappings = [];
+    state.rows = [];
+    state.mapped = null;
+    state.periods = { weekly: [], monthly: [] };
+    state.hasUnits = false;
+    state.analysis = null;
+    $("searchFile").value = "";
+    $("analyzeButton").disabled = true;
+    $("goalGrid").querySelector('[data-goal="unit"]').disabled = false;
+    $("resultsSection").hidden = true;
+    renderSearchFileSummary();
+    refreshPeriods();
+    setStatus(state.targetFiles.length ? "Search Term reports cleared. Optional target reports are still loaded." : "Search Term reports cleared.");
+  }
+
+  function renderTargetFileSummary() {
+    const label = $("targetFileName");
+    const clearButton = $("clearTargetFiles");
+    if (!state.targetFiles.length) {
+      label.textContent = `CSV or XLSX · up to ${MAX_TARGET_FILES} files`;
+      clearButton.hidden = true;
+      return;
+    }
+    const names = state.targetFiles.map((file) => file.name);
+    const shown = names.slice(0, 3).join(", ");
+    const remainder = names.length > 3 ? ` +${names.length - 3} more` : "";
+    label.textContent = `${names.length} file${names.length === 1 ? "" : "s"} · ${formatNumber(state.targetRows.length)} targets · ${shown}${remainder}`;
+    clearButton.hidden = false;
+  }
+
+  async function handleTargetFiles(files) {
+    const incoming = Array.from(files || []).filter(Boolean);
+    if (!incoming.length) return;
+
     try {
-      setStatus("Reading Current Keyword / Target report…");
-      const raw = await parseFile(file);
-      const mapping = mapColumns(raw, targetAliases);
-      if (!mapping.keyword) throw new Error("The optional target report needs a Keyword or Target column.");
-      state.targetFile = file;
-      state.targetMapped = mapping;
-      state.targetRows = prepareTargetRows(raw, mapping);
-      $("targetFileName").textContent = `${file.name} · ${formatNumber(state.targetRows.length)} targets`;
-      setStatus(`${file.name} loaded. Existing target matching is enabled.`);
+      setStatus(`Reading ${incoming.length} Current Keyword / Target report${incoming.length === 1 ? "" : "s"}…`);
+
+      const existingKeys = new Set(state.targetFiles.map((file) => `${file.name}|${file.size}|${file.lastModified}`));
+      const newFiles = incoming.filter((file) => !existingKeys.has(`${file.name}|${file.size}|${file.lastModified}`));
+      if (!newFiles.length) {
+        setStatus("Those optional target reports are already loaded.");
+        return;
+      }
+
+      const availableSlots = MAX_TARGET_FILES - state.targetFiles.length;
+      if (availableSlots <= 0) throw new Error(`You can upload up to ${MAX_TARGET_FILES} optional Current Keyword / Target reports.`);
+      const filesToParse = newFiles.slice(0, availableSlots);
+      const ignoredCount = newFiles.length - filesToParse.length;
+
+      const parsedFiles = [];
+      for (const file of filesToParse) {
+        const raw = await parseFile(file);
+        const mapping = mapColumns(raw, targetAliases);
+        if (!mapping.keyword) throw new Error(`${file.name} needs a Keyword or Target column.`);
+        parsedFiles.push({ file, mapping, rows: prepareTargetRows(raw, mapping) });
+      }
+
+      state.targetFiles.push(...parsedFiles.map((item) => item.file));
+      state.targetMappings.push(...parsedFiles.map((item) => item.mapping));
+      state.targetRows.push(...parsedFiles.flatMap((item) => item.rows));
+
+      const unique = new Map();
+      state.targetRows.forEach((row) => {
+        const key = [row.normalized, row.campaign.toLowerCase(), row.media.toLowerCase(), row.matchType.toLowerCase(), row.bid, row.status.toLowerCase()].join("|");
+        if (!unique.has(key)) unique.set(key, row);
+      });
+      state.targetRows = [...unique.values()];
+
+      renderTargetFileSummary();
+      const limitMessage = ignoredCount > 0 ? ` ${ignoredCount} additional file${ignoredCount === 1 ? " was" : "s were"} not added because the ${MAX_TARGET_FILES}-file limit was reached.` : "";
+      setStatus(`${filesToParse.length} optional report${filesToParse.length === 1 ? "" : "s"} added. ${formatNumber(state.targetRows.length)} existing targets are available for matching.${limitMessage}`);
     } catch (error) {
-      state.targetRows = [];
-      state.targetFile = null;
-      $("targetFileName").textContent = "CSV or XLSX";
-      setStatus(error.message || "Unable to read the target report.", true);
+      renderTargetFileSummary();
+      setStatus(error.message || "Unable to read one of the target reports.", true);
     }
   }
 
-  function setupDropzone(dropzoneId, inputId, handler) {
+  function clearTargetFiles() {
+    state.targetFiles = [];
+    state.targetMappings = [];
+    state.targetRows = [];
+    $("targetFile").value = "";
+    renderTargetFileSummary();
+    setStatus(state.searchFiles.length ? "Optional target reports cleared. Search Term reports are still loaded." : "Optional target reports cleared.");
+  }
+
+  function setupDropzone(dropzoneId, inputId, handler, allowMultiple = false) {
     const dropzone = $(dropzoneId);
     const input = $(inputId);
     ["dragenter", "dragover"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
@@ -1001,18 +1103,23 @@
       dropzone.classList.remove("dragover");
     }));
     dropzone.addEventListener("drop", (event) => {
-      const file = event.dataTransfer.files[0];
-      if (file) handler(file);
+      const files = Array.from(event.dataTransfer.files || []);
+      if (!files.length) return;
+      handler(allowMultiple ? files : files[0]);
     });
     input.addEventListener("change", () => {
-      const file = input.files[0];
-      if (file) handler(file);
+      const files = Array.from(input.files || []);
+      if (!files.length) return;
+      handler(allowMultiple ? files : files[0]);
+      input.value = "";
     });
   }
 
   function setupEvents() {
-    setupDropzone("searchDropzone", "searchFile", handleSearchFile);
-    setupDropzone("targetDropzone", "targetFile", handleTargetFile);
+    setupDropzone("searchDropzone", "searchFile", handleSearchFiles, true);
+    setupDropzone("targetDropzone", "targetFile", handleTargetFiles, true);
+    $("clearSearchFiles").addEventListener("click", clearSearchFiles);
+    $("clearTargetFiles").addEventListener("click", clearTargetFiles);
 
     $$(".goal-card").forEach((button) => button.addEventListener("click", () => setGoal(button.dataset.goal)));
     $("oppAutoToggle").addEventListener("change", () => {

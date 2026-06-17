@@ -28,26 +28,31 @@
             <span class="step">1</span>
             <div>
               <h2>Upload Reports</h2>
-              <p>Start with the raw TPA Search Term report.</p>
+              <p>Start with one or more raw TPA Search Term reports.</p>
             </div>
           </div>
 
           <div class="upload-grid">
             <label class="dropzone" id="searchDropzone" for="searchFile">
-              <input id="searchFile" type="file" accept=".csv,.xlsx,.xls" hidden />
+              <input id="searchFile" type="file" accept=".csv,.xlsx,.xls" multiple hidden />
               <span class="upload-icon" aria-hidden="true">⇧</span>
-              <strong>Drop your Search Term report here</strong>
-              <span>or click to browse</span>
-              <span class="file-name" id="searchFileName">CSV or XLSX</span>
+              <strong>Drop your Search Term reports here</strong>
+              <span>Upload one or more files, up to 20 reports</span>
+              <span class="file-name" id="searchFileName">CSV or XLSX · up to 20 files</span>
             </label>
 
             <label class="dropzone compact" id="targetDropzone" for="targetFile">
-              <input id="targetFile" type="file" accept=".csv,.xlsx,.xls" hidden />
+              <input id="targetFile" type="file" accept=".csv,.xlsx,.xls" multiple hidden />
               <span class="upload-icon" aria-hidden="true">＋</span>
-              <strong>Optional Current Keyword / Target report</strong>
-              <span>Improves increase-bid vs. new-target and decrease-bid vs. negative recommendations.</span>
-              <span class="file-name" id="targetFileName">CSV or XLSX</span>
+              <strong>Optional Current Keyword / Target report(s)</strong>
+              <span>Upload one or more files, up to 20 reports. This improves increase-bid vs. new-target and decrease-bid vs. negative recommendations.</span>
+              <span class="file-name" id="targetFileName">CSV or XLSX · up to 20 files</span>
             </label>
+          </div>
+
+          <div class="upload-clear-row">
+            <button type="button" class="mini-button" id="clearSearchFiles" hidden>Clear Search Term reports</button>
+            <button type="button" class="mini-button clear-target-files" id="clearTargetFiles" hidden>Clear optional reports</button>
           </div>
 
           <div class="required-columns">
@@ -243,7 +248,7 @@
             <label class="check-pill"><input id="exactNegatives" type="checkbox" checked /><span>Exact Negatives Only</span></label>
           </div>
 
-          <p class="threshold-help" id="ineffThresholdHelp">Order CVR at or below 50% of the non-branded benchmark is treated as an inefficiency.</p>
+          <p class="threshold-help" id="ineffThresholdHelp">A term is treated as an inefficiency when it has at least 6 clicks and its Order CVR is 50% or less of the selected period's non-branded Order CVR benchmark. Example: if the benchmark is 20%, terms at 10% or below qualify for review.</p>
         </section>
       </div>
 
@@ -308,12 +313,12 @@
       <section class="guide-card">
         <h2>Quick Start Guide</h2>
         <ol>
-          <li><strong>Export your TPA Search Term Report from Roundel.</strong> Include Campaign Name, Media Name, Keyword, Spend, Sales, Orders, <strong>Units</strong>, Clicks, Impressions, and Week or Month.</li>
+          <li><strong>Export your TPA Search Term Reports from Roundel.</strong> Include Campaign Name, Media Name, Keyword, Spend, Sales, Orders, Units, Clicks, Impressions, and Week or Month. You can combine up to 20 reports.</li>
           <li><strong>Add your brand terms.</strong> Branded shopper searches will be excluded from new-target and negative recommendations.</li>
           <li><strong>Choose the reporting period.</strong> Use the latest week, latest month, a specific period, or all uploaded periods.</li>
           <li><strong>Select the brand objective.</strong> Each goal uses a different non-branded benchmark and primary sorting metric.</li>
           <li><strong>Use AUTO or MANUAL.</strong> Auto loads recommended guardrails. Manual lets you use fixed ROAS/CVR goals or benchmark-relative goals.</li>
-          <li><strong>Start analyzing.</strong> The Excel download keeps Opportunity Keywords on the first tab and Inefficiencies on the second tab.</li>
+          <li><strong>Start analyzing.</strong> Upload up to 20 Search Term reports and up to 20 optional Current Keyword / Target reports. The Excel download keeps Opportunity Keywords on the first tab and Inefficiencies on the second tab.</li>
         </ol>
       </section>
 
@@ -332,6 +337,7 @@
         <p><strong>Required threshold = non-branded benchmark × multiplier.</strong></p>
         <p>Example: If non-branded ROAS is 1.50x, a 115% opportunity threshold becomes 1.73x.</p>
         <p>Benchmarks are recalculated from non-branded totals in the selected period. ROAS and CVR are recalculated from summed performance, not averaged row values.</p>
+        <p>For Maximize Revenue inefficiencies, 50% means half of the benchmark. If non-branded Order CVR is 20%, the inefficiency ceiling is 10%. Terms at or below 10% qualify for review after meeting the minimum-click threshold.</p>
       </section>
 
       <section class="guide-card mini-guide">
@@ -346,8 +352,8 @@
   </main>
 
   <noscript>This tool requires JavaScript to analyze files.</noscript>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/papaparse@5.4.1/papaparse.min.js'"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
