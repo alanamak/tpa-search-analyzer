@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Analyze Roundel TPA Search Term reports for keyword opportunities, bid reductions, and negative targets." />
+  <title>TPA Search Opportunity Analyzer</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-lockup">
+      <div class="roundel" aria-hidden="true"><span></span></div>
+      <div>
+        <h1>TPA Search Opportunity Analyzer</h1>
+        <p>Surface stemmed search-term opportunities to scale, lower bids on, and negative target based on brand objectives.</p>
+      </div>
+    </div>
+    <div class="header-chip">Roundel TPA</div>
+  </header>
+
+  <main class="page-shell">
+    <section class="workspace" aria-label="Analyzer setup">
+      <div class="top-grid">
+        <section class="card" id="uploadCard">
+          <div class="section-heading">
+            <span class="step">1</span>
+            <div>
+              <h2>Upload Reports</h2>
+              <p>Start with the raw TPA Search Term report.</p>
+            </div>
+          </div>
+
+          <div class="upload-grid">
+            <label class="dropzone" id="searchDropzone" for="searchFile">
+              <input id="searchFile" type="file" accept=".csv,.xlsx,.xls" hidden />
+              <span class="upload-icon" aria-hidden="true">⇧</span>
+              <strong>Drop your Search Term report here</strong>
+              <span>or click to browse</span>
+              <span class="file-name" id="searchFileName">CSV or XLSX</span>
+            </label>
+
+            <label class="dropzone compact" id="targetDropzone" for="targetFile">
+              <input id="targetFile" type="file" accept=".csv,.xlsx,.xls" hidden />
+              <span class="upload-icon" aria-hidden="true">＋</span>
+              <strong>Optional Current Keyword / Target report</strong>
+              <span>Improves increase-bid vs. new-target and decrease-bid vs. negative recommendations.</span>
+              <span class="file-name" id="targetFileName">CSV or XLSX</span>
+            </label>
+          </div>
+
+          <div class="required-columns">
+            <strong>Expected search-report columns</strong>
+            <span>Campaign Name, Media Name, Keyword, Spend, Sales, Orders, Units, Clicks, Impressions, and Week or Month.</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <span class="step">2</span>
+            <div>
+              <h2>Brand Setup</h2>
+              <p>Protect branded shopper searches from recommendations.</p>
+            </div>
+          </div>
+
+          <label class="field">
+            <span>Brand Name</span>
+            <input id="brandName" type="text" placeholder="e.g., Function of Beauty" />
+          </label>
+
+          <label class="field">
+            <span>Brand Terms / Variations</span>
+            <textarea id="brandTerms" rows="4" placeholder="function of beauty&#10;function beauty&#10;fob"></textarea>
+          </label>
+
+          <p class="helper">Enter one term per line or separate terms with commas. Broad phrase matching means “function beauty” also catches “function of beauty conditioner.”</p>
+        </section>
+      </div>
+
+      <div class="middle-grid">
+        <section class="card">
+          <div class="section-heading compact-heading">
+            <span class="step">3</span>
+            <div>
+              <h2>Reporting Period</h2>
+              <p>Use the latest period in the file or select another.</p>
+            </div>
+          </div>
+
+          <div class="segmented" role="group" aria-label="Reporting cadence">
+            <button class="segment active" id="weeklyMode" type="button">Weekly</button>
+            <button class="segment" id="monthlyMode" type="button">Monthly</button>
+          </div>
+
+          <label class="field no-margin">
+            <span class="sr-only">Selected reporting period</span>
+            <select id="periodSelect" disabled>
+              <option>Upload a report first</option>
+            </select>
+          </label>
+
+          <div class="period-actions">
+            <button type="button" class="mini-button" id="latestPeriod" disabled>Latest in File</button>
+            <button type="button" class="mini-button" id="previousPeriod" disabled>Previous</button>
+            <button type="button" class="mini-button" id="allPeriods" disabled>All Uploaded</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-heading compact-heading">
+            <span class="step">4</span>
+            <div>
+              <h2>Optimization Goal</h2>
+              <p>The goal sets the benchmark filter and primary sort.</p>
+            </div>
+          </div>
+
+          <div class="goal-grid" id="goalGrid">
+            <button type="button" class="goal-card" data-goal="unit">
+              <span class="goal-icon">▣</span>
+              <strong>Maximize Unit Sales</strong>
+              <small>Highest Unit CVR first</small>
+            </button>
+            <button type="button" class="goal-card active" data-goal="revenue">
+              <span class="goal-icon">$</span>
+              <strong>Maximize Revenue</strong>
+              <small>Highest Sales first</small>
+            </button>
+            <button type="button" class="goal-card" data-goal="roas">
+              <span class="goal-icon">↗</span>
+              <strong>Maximize ROAS</strong>
+              <small>Highest ROAS first</small>
+            </button>
+            <button type="button" class="goal-card" data-goal="manual">
+              <span class="goal-icon">⚙</span>
+              <strong>Custom / Manual</strong>
+              <small>Choose every guardrail</small>
+            </button>
+          </div>
+
+          <div class="goal-note" id="goalNote">
+            <strong>Why ROAS is not an automatic filter:</strong>
+            This lets terms with proven sales and order volume rise to the top without allowing a strict ROAS threshold to limit scaling opportunities. ROAS remains visible for context and can be added as a Manual guardrail.
+          </div>
+        </section>
+      </div>
+
+      <div class="threshold-grid">
+        <section class="card threshold-card">
+          <div class="threshold-header">
+            <div>
+              <span class="eyebrow">5A</span>
+              <h2>Opportunity Keyword Thresholds</h2>
+            </div>
+            <label class="mode-toggle">
+              <span id="oppModeLabel">AUTO</span>
+              <input id="oppAutoToggle" type="checkbox" checked />
+              <span class="switch"></span>
+            </label>
+          </div>
+
+          <div class="threshold-fields">
+            <label class="field compact-field">
+              <span>Min Clicks</span>
+              <input id="oppMinClicks" type="number" min="0" step="1" value="6" />
+            </label>
+            <label class="field compact-field">
+              <span>Min Spend</span>
+              <input id="oppMinSpend" type="number" min="0" step="0.01" placeholder="Off" />
+            </label>
+            <label class="field compact-field">
+              <span>Min Sales</span>
+              <input id="oppMinSales" type="number" min="0" step="0.01" placeholder="Off" />
+            </label>
+            <label class="field compact-field">
+              <span>Min Orders</span>
+              <input id="oppMinOrders" type="number" min="0" step="1" value="1" />
+            </label>
+            <label class="field compact-field">
+              <span>Min Units</span>
+              <input id="oppMinUnits" type="number" min="0" step="1" placeholder="Off" />
+            </label>
+
+            <div class="metric-field" data-metric="roas">
+              <label><span>Min ROAS</span><select id="oppRoasMode"><option value="off">Off</option><option value="fixed">Fixed value</option><option value="benchmark">Relative to benchmark</option></select></label>
+              <input id="oppRoasValue" type="number" min="0" step="0.01" placeholder="e.g., 1.50 or 115" />
+            </div>
+            <div class="metric-field" data-metric="orderCvr">
+              <label><span>Min Order CVR</span><select id="oppOrderCvrMode"><option value="off">Off</option><option value="fixed">Fixed value</option><option value="benchmark">Relative to benchmark</option></select></label>
+              <input id="oppOrderCvrValue" type="number" min="0" step="0.1" placeholder="e.g., 20 or 100" />
+            </div>
+            <div class="metric-field" data-metric="unitCvr">
+              <label><span>Min Unit CVR</span><select id="oppUnitCvrMode"><option value="off">Off</option><option value="fixed">Fixed value</option><option value="benchmark">Relative to benchmark</option></select></label>
+              <input id="oppUnitCvrValue" type="number" min="0" step="0.1" placeholder="e.g., 25 or 100" />
+            </div>
+          </div>
+
+          <p class="threshold-help" id="oppThresholdHelp">Order CVR must be at or above the selected period’s non-branded benchmark.</p>
+        </section>
+
+        <section class="card threshold-card">
+          <div class="threshold-header">
+            <div>
+              <span class="eyebrow">5B</span>
+              <h2>Inefficiency Thresholds</h2>
+            </div>
+            <label class="mode-toggle">
+              <span id="ineffModeLabel">AUTO</span>
+              <input id="ineffAutoToggle" type="checkbox" checked />
+              <span class="switch"></span>
+            </label>
+          </div>
+
+          <div class="threshold-fields ineff-grid">
+            <label class="field compact-field">
+              <span>Min Clicks</span>
+              <input id="ineffMinClicks" type="number" min="0" step="1" value="6" />
+            </label>
+            <label class="field compact-field">
+              <span>Min Spend</span>
+              <input id="ineffMinSpend" type="number" min="0" step="0.01" placeholder="Off" />
+            </label>
+
+            <div class="metric-field" data-metric="roas">
+              <label><span>ROAS at or below</span><select id="ineffRoasMode"><option value="off">Off</option><option value="fixed">Fixed value</option><option value="benchmark">Relative to benchmark</option></select></label>
+              <input id="ineffRoasValue" type="number" min="0" step="0.01" placeholder="e.g., 0.50 or 85" />
+            </div>
+            <div class="metric-field" data-metric="orderCvr">
+              <label><span>Order CVR at or below</span><select id="ineffOrderCvrMode"><option value="off">Off</option><option value="fixed">Fixed value</option><option value="benchmark">Relative to benchmark</option></select></label>
+              <input id="ineffOrderCvrValue" type="number" min="0" step="0.1" placeholder="e.g., 5 or 50" />
+            </div>
+            <div class="metric-field" data-metric="unitCvr">
+              <label><span>Unit CVR at or below</span><select id="ineffUnitCvrMode"><option value="off">Off</option><option value="fixed">Fixed value</option><option value="benchmark">Relative to benchmark</option></select></label>
+              <input id="ineffUnitCvrValue" type="number" min="0" step="0.1" placeholder="e.g., 10 or 50" />
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <label class="check-pill"><input id="includeZeroOrders" type="checkbox" checked /><span>Include Zero Orders</span></label>
+            <label class="check-pill"><input id="protectBrandTerms" type="checkbox" checked /><span>Protect Brand Terms</span></label>
+            <label class="check-pill"><input id="exactNegatives" type="checkbox" checked /><span>Exact Negatives Only</span></label>
+          </div>
+
+          <p class="threshold-help" id="ineffThresholdHelp">Order CVR at or below 50% of the non-branded benchmark is treated as an inefficiency.</p>
+        </section>
+      </div>
+
+      <section class="card manual-sort-card" id="manualSortCard" hidden>
+        <div>
+          <h2>Manual Sorting</h2>
+          <p>Choose the primary metric used to order each downloaded list.</p>
+        </div>
+        <label class="field compact-field"><span>Opportunity sort</span><select id="manualOpportunitySort"><option value="sales">Sales</option><option value="roas">ROAS</option><option value="orders">Orders</option><option value="units">Units</option><option value="orderCvr">Order CVR</option><option value="unitCvr">Unit CVR</option><option value="clicks">Clicks</option><option value="spend">Spend</option></select></label>
+        <label class="field compact-field"><span>Inefficiency sort</span><select id="manualIneffSort"><option value="roas">ROAS</option><option value="orderCvr">Order CVR</option><option value="unitCvr">Unit CVR</option><option value="sales">Sales</option><option value="orders">Orders</option><option value="units">Units</option><option value="clicks">Clicks</option><option value="spend">Spend</option></select></label>
+      </section>
+
+      <section class="action-panel">
+        <div id="statusMessage" class="status-message" role="status">Upload a Search Term report to begin.</div>
+        <div class="action-buttons">
+          <button type="button" class="button secondary" id="downloadTemplate">Download Example Template</button>
+          <button type="button" class="button primary" id="analyzeButton" disabled>Start Analyzing →</button>
+        </div>
+      </section>
+
+      <section class="results" id="resultsSection" hidden>
+        <div class="results-header">
+          <div>
+            <span class="eyebrow">ANALYSIS COMPLETE</span>
+            <h2>Search Recommendations</h2>
+            <p id="resultsSummary"></p>
+          </div>
+          <button type="button" class="button primary" id="downloadResults">Download Excel Report</button>
+        </div>
+
+        <div class="benchmark-strip" id="benchmarkStrip"></div>
+
+        <div class="result-tabs" role="tablist">
+          <button type="button" class="result-tab active" data-tab="opportunities">Opportunity Keywords <span id="oppCount">0</span></button>
+          <button type="button" class="result-tab" data-tab="inefficiencies">Inefficiencies <span id="ineffCount">0</span></button>
+          <button type="button" class="result-tab" data-tab="settings">Settings &amp; Benchmarks</button>
+        </div>
+
+        <div class="tab-panel active" id="opportunitiesPanel">
+          <div class="table-toolbar">
+            <label class="search-box">Filter results <input id="oppSearch" type="search" placeholder="Search stemmed terms" /></label>
+            <span id="oppShowing"></span>
+          </div>
+          <div class="table-wrap"><table id="opportunityTable"></table></div>
+        </div>
+
+        <div class="tab-panel" id="inefficienciesPanel" hidden>
+          <div class="table-toolbar">
+            <label class="search-box">Filter results <input id="ineffSearch" type="search" placeholder="Search stemmed terms" /></label>
+            <span id="ineffShowing"></span>
+          </div>
+          <div class="table-wrap"><table id="inefficiencyTable"></table></div>
+        </div>
+
+        <div class="tab-panel" id="settingsPanel" hidden>
+          <div class="settings-grid" id="settingsGrid"></div>
+        </div>
+      </section>
+    </section>
+
+    <aside class="guide-column">
+      <section class="guide-card">
+        <h2>Quick Start Guide</h2>
+        <ol>
+          <li><strong>Export your TPA Search Term Report from Roundel.</strong> Include Campaign Name, Media Name, Keyword, Spend, Sales, Orders, <strong>Units</strong>, Clicks, Impressions, and Week or Month.</li>
+          <li><strong>Add your brand terms.</strong> Branded shopper searches will be excluded from new-target and negative recommendations.</li>
+          <li><strong>Choose the reporting period.</strong> Use the latest week, latest month, a specific period, or all uploaded periods.</li>
+          <li><strong>Select the brand objective.</strong> Each goal uses a different non-branded benchmark and primary sorting metric.</li>
+          <li><strong>Use AUTO or MANUAL.</strong> Auto loads recommended guardrails. Manual lets you use fixed ROAS/CVR goals or benchmark-relative goals.</li>
+          <li><strong>Start analyzing.</strong> The Excel download keeps Opportunity Keywords on the first tab and Inefficiencies on the second tab.</li>
+        </ol>
+      </section>
+
+      <section class="guide-card">
+        <h2>Goal Key</h2>
+        <div class="key-list">
+          <div class="key-item"><strong>Maximize Unit Sales</strong><span>Filters to Unit CVR at or above the non-branded benchmark. Sorted by highest Unit CVR.</span></div>
+          <div class="key-item"><strong>Maximize Revenue</strong><span>Filters to Order CVR at or above the non-branded benchmark. Sorted by highest Sales.</span></div>
+          <div class="key-item"><strong>Maximize ROAS</strong><span>Filters to ROAS at least 15% above the non-branded benchmark. Sorted by highest ROAS.</span></div>
+          <div class="key-item"><strong>Custom / Manual</strong><span>Use fixed goals, benchmark multipliers, or any combination of available guardrails.</span></div>
+        </div>
+      </section>
+
+      <section class="guide-card">
+        <h2>How Benchmark Multipliers Work</h2>
+        <p><strong>Required threshold = non-branded benchmark × multiplier.</strong></p>
+        <p>Example: If non-branded ROAS is 1.50x, a 115% opportunity threshold becomes 1.73x.</p>
+        <p>Benchmarks are recalculated from non-branded totals in the selected period. ROAS and CVR are recalculated from summed performance, not averaged row values.</p>
+      </section>
+
+      <section class="guide-card mini-guide">
+        <h2>Excel Output</h2>
+        <div class="output-pills">
+          <span>1. Opportunity Keywords</span>
+          <span>2. Inefficiencies</span>
+          <span>3. Settings &amp; Benchmarks</span>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <noscript>This tool requires JavaScript to analyze files.</noscript>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/papaparse@5.4.1/papaparse.min.js'"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
+  <script src="app.js"></script>
+</body>
+</html>
