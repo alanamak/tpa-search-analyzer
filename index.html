@@ -28,7 +28,7 @@
             <span class="step">1</span>
             <div>
               <h2>Upload Reports</h2>
-              <p>Start with one or more raw TPA Search Term reports.</p>
+              <p>Start with one or more raw TPA Search Term reports. Performance stays separated by campaign and line item.</p>
             </div>
           </div>
 
@@ -57,7 +57,7 @@
 
           <div class="required-columns">
             <strong>Expected search-report columns</strong>
-            <span>Campaign Name, Media Name, Keyword, Spend, Sales, Orders, Units, Clicks, Impressions, and Week or Month.</span>
+            <span>Campaign Name, Media Name, Keyword, Spend, Sales, Orders, Units, Clicks, Impressions, and Week or Month. The analyzer groups results by Campaign Name + Media Name + stemmed search term, so duplicate terms remain separate across tiers and line items.</span>
           </div>
         </section>
 
@@ -289,7 +289,7 @@
 
         <div class="tab-panel active" id="opportunitiesPanel">
           <div class="table-toolbar">
-            <label class="search-box">Filter results <input id="oppSearch" type="search" placeholder="Search stemmed terms" /></label>
+            <label class="search-box">Filter results <input id="oppSearch" type="search" placeholder="Search campaign, line item, or term" /></label>
             <span id="oppShowing"></span>
           </div>
           <div class="table-wrap"><table id="opportunityTable"></table></div>
@@ -297,7 +297,7 @@
 
         <div class="tab-panel" id="inefficienciesPanel" hidden>
           <div class="table-toolbar">
-            <label class="search-box">Filter results <input id="ineffSearch" type="search" placeholder="Search stemmed terms" /></label>
+            <label class="search-box">Filter results <input id="ineffSearch" type="search" placeholder="Search campaign, line item, or term" /></label>
             <span id="ineffShowing"></span>
           </div>
           <div class="table-wrap"><table id="inefficiencyTable"></table></div>
@@ -318,8 +318,14 @@
           <li><strong>Choose the reporting period.</strong> Use the latest week, latest month, a specific period, or all uploaded periods.</li>
           <li><strong>Select the brand objective.</strong> Each goal uses a different non-branded benchmark and primary sorting metric.</li>
           <li><strong>Use AUTO or MANUAL.</strong> Auto loads recommended guardrails. Manual lets you use fixed ROAS/CVR goals or benchmark-relative goals.</li>
-          <li><strong>Start analyzing.</strong> Upload up to 20 Search Term reports and up to 20 optional Current Keyword / Target reports. The Excel download keeps Opportunity Keywords on the first tab and Inefficiencies on the second tab.</li>
+          <li><strong>Start analyzing.</strong> Upload up to 20 Search Term reports and up to 20 optional Current Keyword / Target reports. Every result stays separated by Campaign Name and Media Name / Line Item, even when the same keyword appears elsewhere. The Excel download keeps Opportunity Keywords on the first tab and Inefficiencies on the second tab.</li>
         </ol>
+      </section>
+
+      <section class="guide-card">
+        <h2>Campaign + Line-Item Separation</h2>
+        <p>The analyzer calculates performance separately for each <strong>Campaign Name + Media Name / Line Item + stemmed search term</strong>.</p>
+        <p>The same keyword may appear on multiple rows when it performs in Tier 1, Tier 2, Tier 3, Branded, or another line item. This is intentional so you can see exactly where to add, increase, decrease, or negative target it.</p>
       </section>
 
       <section class="guide-card">

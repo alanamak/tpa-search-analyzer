@@ -443,12 +443,24 @@
     rows.forEach((row) => {
       const brand = isBrandQuery(row.keyword, brandTerms);
       if (brand && $("protectBrandTerms").checked) return;
-      const key = stemKey(row.keyword) || normalizeText(row.keyword);
-      if (!key) return;
+
+      const stem = stemKey(row.keyword) || normalizeText(row.keyword);
+      if (!stem) return;
+
+      // Campaign and Media Name are part of the grouping key on purpose.
+      // The same shopper query can perform very differently by tier or line item,
+      // so it must remain a separate recommendation in each placement.
+      const campaign = String(row.campaign || "").trim();
+      const media = String(row.media || "").trim();
+      const key = [normalizeText(campaign), normalizeText(media), stem].join("||");
+
       if (!map.has(key)) {
         map.set(key, {
-          stemKey: key,
+          groupKey: key,
+          stemKey: stem,
           representative: normalizeText(row.keyword),
+          campaign,
+          media,
           spend: 0,
           sales: 0,
           orders: 0,
@@ -456,11 +468,11 @@
           clicks: 0,
           impressions: 0,
           terms: new Map(),
-          campaigns: new Set(),
-          media: new Set(),
+          sourceFiles: new Set(),
           brand,
         });
       }
+
       const item = map.get(key);
       item.spend += row.spend;
       item.sales += row.sales;
@@ -468,8 +480,8 @@
       item.units += row.units;
       item.clicks += row.clicks;
       item.impressions += row.impressions;
-      if (row.campaign) item.campaigns.add(row.campaign);
-      if (row.media) item.media.add(row.media);
+      if (row.sourceFile) item.sourceFiles.add(row.sourceFile);
+
       const termKey = normalizeText(row.keyword);
       const term = item.terms.get(termKey) || { term: termKey, spend: 0, sales: 0, orders: 0, units: 0, clicks: 0, impressions: 0 };
       term.spend += row.spend;
@@ -563,17 +575,58 @@
   }
 
   function targetLookup() {
-    const normalized = new Map();
-    const stems = new Map();
+    const lookup = {
+      scopedExact: new Map(),
+      scopedStem: new Map(),
+      campaignExact: new Map(),
+      campaignStem: new Map(),
+      mediaExact: new Map(),
+      mediaStem: new Map(),
+      unscopedExact: new Map(),
+      unscopedStem: new Map(),
+    };
+
     state.targetRows.forEach((row) => {
-      if (!normalized.has(row.normalized)) normalized.set(row.normalized, row);
-      if (!stems.has(row.stem)) stems.set(row.stem, row);
+      const campaign = normalizeText(row.campaign);
+      const media = normalizeText(row.media);
+      const exact = row.normalized;
+      const stem = row.stem;
+
+      if (campaign && media) {
+        if (!lookup.scopedExact.has(`${campaign}||${media}||${exact}`)) lookup.scopedExact.set(`${campaign}||${media}||${exact}`, row);
+        if (!lookup.scopedStem.has(`${campaign}||${media}||${stem}`)) lookup.scopedStem.set(`${campaign}||${media}||${stem}`, row);
+      } else if (campaign) {
+        if (!lookup.campaignExact.has(`${campaign}||${exact}`)) lookup.campaignExact.set(`${campaign}||${exact}`, row);
+        if (!lookup.campaignStem.has(`${campaign}||${stem}`)) lookup.campaignStem.set(`${campaign}||${stem}`, row);
+      } else if (media) {
+        if (!lookup.mediaExact.has(`${media}||${exact}`)) lookup.mediaExact.set(`${media}||${exact}`, row);
+        if (!lookup.mediaStem.has(`${media}||${stem}`)) lookup.mediaStem.set(`${media}||${stem}`, row);
+      } else {
+        if (!lookup.unscopedExact.has(exact)) lookup.unscopedExact.set(exact, row);
+        if (!lookup.unscopedStem.has(stem)) lookup.unscopedStem.set(stem, row);
+      }
     });
-    return { normalized, stems };
+
+    return lookup;
   }
 
   function findTargetMatch(item, lookup) {
-    return lookup.normalized.get(normalizeText(item.representative)) || lookup.stems.get(item.stemKey) || null;
+    const campaign = normalizeText(item.campaign);
+    const media = normalizeText(item.media);
+    const exact = normalizeText(item.representative);
+    const stem = item.stemKey;
+
+    // Never use a target from another campaign or line item. Exact scoped
+    // matches are preferred, followed by stemmed matches in the same scope.
+    return lookup.scopedExact.get(`${campaign}||${media}||${exact}`)
+      || lookup.scopedStem.get(`${campaign}||${media}||${stem}`)
+      || lookup.campaignExact.get(`${campaign}||${exact}`)
+      || lookup.campaignStem.get(`${campaign}||${stem}`)
+      || lookup.mediaExact.get(`${media}||${exact}`)
+      || lookup.mediaStem.get(`${media}||${stem}`)
+      || lookup.unscopedExact.get(exact)
+      || lookup.unscopedStem.get(stem)
+      || null;
   }
 
   function opportunityReason(item, benchmarks) {
@@ -709,7 +762,7 @@
     $("resultsSection").hidden = false;
     $("oppCount").textContent = opportunities.length;
     $("ineffCount").textContent = inefficiencies.length;
-    $("resultsSummary").textContent = `${selectedPeriodLabel} · ${goalLabel(state.goal)} · Full qualifying lists included.`;
+    $("resultsSummary").textContent = `${selectedPeriodLabel} · ${goalLabel(state.goal)} · Results separated by campaign and line item.`;
     $("benchmarkStrip").innerHTML = [
       ["Non-Branded ROAS", formatRoas(benchmarks.roas)],
       ["Non-Branded Order CVR", formatPercent(benchmarks.orderCvr)],
@@ -725,6 +778,8 @@
   function tableColumns(type) {
     const base = [
       ["action", "Recommendation"],
+      ["campaign", "Campaign Name"],
+      ["media", "Media Name / Line Item"],
       ["representative", "Stemmed Search Term"],
       ["termCount", "Raw Terms"],
       ["clicks", "Clicks"],
@@ -746,7 +801,7 @@
   function renderTable(tableId, rows, type, filter = "") {
     const table = $(tableId);
     const query = normalizeText(filter);
-    const filtered = query ? rows.filter((row) => normalizeText(`${row.representative} ${row.contributingTerms.join(" ")} ${row.action}`).includes(query)) : rows;
+    const filtered = query ? rows.filter((row) => normalizeText(`${row.campaign} ${row.media} ${row.representative} ${row.contributingTerms.join(" ")} ${row.action}`).includes(query)) : rows;
     const columns = tableColumns(type);
     const head = `<thead><tr>${columns.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join("")}</tr></thead>`;
     const bodyRows = filtered.map((row) => `<tr>${columns.map(([key]) => `<td>${renderCell(key, row[key])}</td>`).join("")}</tr>`).join("");
@@ -772,6 +827,7 @@
       ["Brand Terms Protected", brandTerms.length ? brandTerms.join(", ") : "None entered"],
       ["Opportunity Mode", $("oppAutoToggle").checked ? "Auto" : "Manual"],
       ["Inefficiency Mode", $("ineffAutoToggle").checked ? "Auto" : "Manual"],
+      ["Analysis Grouping", "Campaign Name + Media Name / Line Item + stemmed search term"],
       ["Opportunity Sort", metricLabel(opportunitySort) + " — highest to lowest"],
       ["Inefficiency Sort", metricLabel(inefficiencySort) + " — lowest to highest"],
       ["Non-Branded ROAS", formatRoas(benchmarks.roas)],
@@ -826,13 +882,14 @@
   function exportRow(item, rank, type) {
     return {
       Rank: rank,
+      "Campaign Name": item.campaign,
+      "Media Name / Line Item": item.media,
       "Stemmed Search Term": item.representative,
       "Recommended Action": item.action,
       "Negative Match Type": type === "inefficiency" ? item.negativeMatchType : "",
       "Contributing Search Terms": item.contributingTerms.join(" | "),
       "Search Term Count": item.termCount,
-      Campaigns: [...item.campaigns].join(" | "),
-      "Media Names": [...item.media].join(" | "),
+      "Source Report(s)": [...item.sourceFiles].join(" | "),
       Clicks: item.clicks,
       Impressions: item.impressions,
       Spend: Number(item.spend.toFixed(2)),
@@ -869,6 +926,7 @@
       { Setting: "Non-Branded Unit CVR", Value: state.hasUnits ? Number(a.benchmarks.unitCvr.toFixed(6)) : "Not available" },
       { Setting: "Opportunity Filters", Value: summarizeOpportunityThresholds(a.thresholds.opportunity) },
       { Setting: "Inefficiency Filters", Value: summarizeInefficiencyThresholds(a.thresholds.inefficiency) },
+      { Setting: "Analysis Grouping", Value: "Campaign Name + Media Name / Line Item + stemmed search term. Duplicate terms remain separate across campaigns and line items." },
       { Setting: "Opportunity Sort", Value: `${metricLabel(a.opportunitySort)} — highest to lowest` },
       { Setting: "Inefficiency Sort", Value: `${metricLabel(a.inefficiencySort)} — lowest to highest` },
       { Setting: "Benchmark Multiplier Explanation", Value: "Required threshold = non-branded benchmark × multiplier. Benchmarks are recalculated from summed non-branded performance in the selected period." },
@@ -890,8 +948,8 @@
     const oppSheet = XLSX.utils.json_to_sheet(oppRows.length ? oppRows : [{ Message: "No qualifying opportunity keywords." }]);
     const ineffSheet = XLSX.utils.json_to_sheet(ineffRows.length ? ineffRows : [{ Message: "No qualifying inefficiencies." }]);
     const settingsSheet = XLSX.utils.json_to_sheet(settingsRows);
-    styleWorksheet(oppSheet, [8, 34, 24, 20, 70, 16, 40, 34, 12, 14, 14, 14, 12, 12, 12, 14, 14, 12, 12, 30, 14, 18, 70]);
-    styleWorksheet(ineffSheet, [8, 34, 24, 20, 70, 16, 40, 34, 12, 14, 14, 14, 12, 12, 12, 14, 14, 12, 12, 30, 14, 18, 70]);
+    styleWorksheet(oppSheet, [8, 30, 30, 34, 24, 20, 70, 16, 34, 12, 14, 14, 14, 12, 12, 12, 14, 14, 12, 12, 30, 14, 18, 70]);
+    styleWorksheet(ineffSheet, [8, 30, 30, 34, 24, 20, 70, 16, 34, 12, 14, 14, 14, 12, 12, 12, 14, 14, 12, 12, 30, 14, 18, 70]);
     styleWorksheet(settingsSheet, [34, 90]);
 
     XLSX.utils.book_append_sheet(workbook, oppSheet, "Opportunity Keywords");

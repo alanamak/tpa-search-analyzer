@@ -7,6 +7,7 @@ A browser-based analyzer for Roundel TPA Search Term reports. It surfaces:
 - Search terms to add as exact negatives
 - Non-branded ROAS, Order CVR, and Unit CVR benchmarks
 - Full Excel downloads with separate Opportunity Keywords and Inefficiencies tabs
+- Campaign- and line-item-specific performance, even when the same term appears in multiple placements
 
 ## App goals
 
@@ -28,6 +29,17 @@ A browser-based analyzer for Roundel TPA Search Term reports. It surfaces:
 ## Search Term report uploads
 
 The main uploader accepts **up to 20 CSV/XLSX Search Term reports**. Select several files at once or add more files in later selections. The app combines the rows, de-duplicates file selections, and lets you filter by any Week or Month included across the loaded reports. Use **Clear Search Term reports** to reset the main upload.
+
+
+## Campaign and line-item separation
+
+The analyzer does **not** combine a search term across different campaigns or media line items. Every recommendation is grouped by:
+
+`Campaign Name + Media Name / Line Item + stemmed search term`
+
+This means the same keyword can appear multiple times in the output when it performs in different tiers or line items. For example, `curl mousse` can qualify separately in Tier 2 and Tier 3, with performance and recommendations calculated independently for each placement.
+
+The optional Current Keyword / Target report is also matched within the same campaign and line item whenever those fields are available. A target that exists in Tier 1 will not cause the same term in Tier 2 or Tier 3 to be mislabeled as an existing target.
 
 ## Required Search Term report columns
 

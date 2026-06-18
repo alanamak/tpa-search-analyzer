@@ -38,3 +38,9 @@ MULTIPLE REPORT UPLOADS
 - The optional Current Keyword / Target uploader accepts up to 20 CSV/XLSX reports.
 - Select multiple files at once, or upload more in later selections.
 - Use Clear Search Term reports or Clear optional reports to reset either uploader.
+
+
+CAMPAIGN + LINE-ITEM UPDATE
+- Results are grouped by Campaign Name + Media Name / Line Item + stemmed search term.
+- The same keyword can appear more than once when it performs in different campaigns or line items.
+- Replace all existing repository files with the files in this package so app.js, index.html, and README.md stay in sync.
